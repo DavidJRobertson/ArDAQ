@@ -5,19 +5,19 @@
 
 class ADS1232 {
   public:
-    ADS1232(int pdwn_pin, int dout_pin, int sclk_pin);
+    ADS1232(uint8_t pdwn_pin, uint8_t dout_pin, uint8_t sclk_pin);
     void init();
     void reset();
     void enable();
     void disable();
     void offset_calibration();
-    unsigned long read_blocking();
+    uint32_t read_blocking();
     bool ready();
     
   private:
-    int _dout;
-    int _sclk;
-    int _pdwn;
+    uint8_t _dout;
+    uint8_t _sclk;
+    uint8_t _pdwn;
 };
 
 #endif

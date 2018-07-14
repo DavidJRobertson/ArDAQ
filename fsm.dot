@@ -1,0 +1,59 @@
+digraph finite_state_machine {
+	rankdir=LR;
+	node [shape=circle, fixedsize=true, fontsize=11, fontname="gotham-bold", width=0.95];
+	edge [fontsize = "7", fontname="gotham"];
+
+	// Idle state
+	Idle [shape=doublecircle]
+	Idle -> Idle [label="Wait"];
+	Idle -> Prepare [ label = "Prep rec'd" ];
+	Idle -> PrepareImmediate [ label = "Start rec'd" ];
+	Idle -> SendStartReq [label="cmd startreq"]
+
+	// SendStartReq
+	SendStartReq [label="Send\nStartReq"]
+	SendStartReq -> Prepare [label="Done"]
+	SendStartReq -> SendStartReq [label="Delay"];
+
+	// Prepare state
+	Prepare -> Run [ label = "Start" ];
+	Prepare -> Prepare [ label = "Wait for Start" ];
+
+	// PrepareImmediate
+	PrepareImmediate [label="Prepare\nImmediate"]
+	PrepareImmediate -> Run [label="Done"]
+
+	// Run state
+	Run -> Run [label="Wait"]
+	Run -> PostRun [ label = "Stop rec'd" ];
+
+
+	// Sample state
+	TakeSample [label="Take\nSample"]
+	Run -> TakeSample [ label = "DRDY" ]
+	TakeSample -> Run [ label = "Done"]
+
+	// PostRun state
+	PostRun -> Idle
+
+
+
+
+
+
+
+
+
+	// Shutdown signal asserted/released
+	//Idle -> Shutdown [ headlabel = "Shutdown"];
+	//Run -> Shutdown [ label = "Shutdown"];
+	//Prepare -> Shutdown [ label = "Shutdown"];
+	//Shutdown -> Idle [ label = "Reset"];
+
+	// Shutdown command (i.e. ArDAQ is asserting the shutdown line)
+	//AssertShutdown [label="Assert\nShutdown"]
+	//Idle -> AssertShutdown
+	//Run -> AssertShutdown
+	//AssertShutdown -> AssertShutdown [label="Delay"]
+	//AssertShutdown -> Idle [label="Done"]
+}

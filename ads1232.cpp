@@ -3,7 +3,7 @@
 
 #include "ads1232.h"
 
-ADS1232::ADS1232(int pdwn_pin, int dout_pin, int sclk_pin) {
+ADS1232::ADS1232(uint8_t pdwn_pin, uint8_t dout_pin, uint8_t sclk_pin) {
   _pdwn = pdwn_pin;
   _dout = dout_pin;
   _sclk = sclk_pin;
@@ -38,7 +38,7 @@ void ADS1232::offset_calibration() {
 bool ADS1232::ready() {
   return (digitalRead(_dout) == LOW);
 }
-unsigned long ADS1232::read_blocking() { 
+uint32_t ADS1232::read_blocking() { 
   while (!ready()) { 
     // wait for conversion to complete
   }
