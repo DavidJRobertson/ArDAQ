@@ -34,6 +34,7 @@ unsigned long startTime;
 // State functions
 State noopState = State();
 FSM fsm(noopState);
+void st_idle_enter();
 void st_idle_update();
 void st_streq_enter();
 void st_streq_update();
@@ -45,7 +46,7 @@ void st_run_enter();
 void st_run_update();
 void st_run_exit();
 void st_post_enter();
-State st_idle   = State(NULL, st_idle_update, NULL);
+State st_idle   = State(st_idle_enter, st_idle_update, NULL);
 State st_streq  = State(st_streq_enter, st_streq_update, st_streq_exit);
 State st_prep   = State(st_prep_enter, st_prep_update,   NULL);
 State st_prepim = State(st_prep_enter, st_prepim_update, NULL);
@@ -54,6 +55,9 @@ State st_post   = State(st_post_enter, NULL, NULL);
 bool manualOverride = false;
 
 // IDLE STATE
+void st_idle_enter() {
+  Serial.println("Entering st_idle");
+}
 void st_idle_update() {
   manualOverride=false;
   if (Serial.available() > 0) {
@@ -75,6 +79,8 @@ void st_idle_update() {
 
 // STREQ STATE
 void st_streq_enter() {
+  Serial.println("Entering st_streq");
+  Serial.println("# Sending start request.")
   startTime = millis();
   hp.assert_line(HPSystem::STARTREQ);
 }
@@ -90,6 +96,7 @@ void st_streq_exit() {
 
 // PREP/PREPIM STATE
 void st_prep_enter() { // used for prepim as well
+  Serial.println("Entering st_prep or st_prepim");
   adc.enable();
   adc.offset_calibration();
   sampleNumber = 0;
@@ -105,6 +112,7 @@ void st_prepim_update() {
 
 // RUN STATE
 void st_run_enter() {
+  Serial.println("Entering st_run");
   startTime = millis();
   digitalWrite(RUN_LED_PIN, HIGH);
 }
@@ -149,6 +157,7 @@ void st_run_update() {
 
 // POST RUN STATE
 void st_post_enter() {
+  Serial.println("Entering st_post");
   fsm.transitionTo(st_idle);
 }
 
