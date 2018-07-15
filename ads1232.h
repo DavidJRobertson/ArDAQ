@@ -11,9 +11,9 @@ class ADS1232 {
     void enable();
     void disable();
     void offset_calibration();
-    uint32_t read_blocking();
+    int32_t read_blocking();
     bool ready();
-    
+
   private:
     uint8_t _dout;
     uint8_t _sclk;

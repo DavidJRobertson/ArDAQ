@@ -32,14 +32,14 @@ void ADS1232::disable() {
 void ADS1232::offset_calibration() {
   // perform offset calibration by toggling the clock an extra time after reading the adc
   read_blocking();
-  digitalWrite(_sclk, HIGH); 
+  digitalWrite(_sclk, HIGH);
   digitalWrite(_sclk, LOW);
 }
 bool ADS1232::ready() {
   return (digitalRead(_dout) == LOW);
 }
-uint32_t ADS1232::read_blocking() { 
-  while (!ready()) { 
+int32_t ADS1232::read_blocking() {
+  while (!ready()) {
     // wait for conversion to complete
   }
   unsigned long b1 = shiftIn(_dout, _sclk, MSBFIRST);
@@ -47,10 +47,16 @@ uint32_t ADS1232::read_blocking() {
   unsigned long b3 = shiftIn(_dout, _sclk, MSBFIRST);
 
   // toggle clock once to reset the dout line to the idle state
-  digitalWrite(_sclk, HIGH); 
+  digitalWrite(_sclk, HIGH);
   digitalWrite(_sclk, LOW);
 
-  // format the data  
-  return (b1 << 16) | (b2 << 8) | b3;
-}
+  // format the data
+  uint32_t val = (b1 << 16) | (b2 << 8) | b3;
 
+  // Sign extension
+  if ( val & 0x00800000 ) {
+    val = val | 0xff000000;
+  }
+  
+  return val;
+}
