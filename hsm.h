@@ -67,6 +67,7 @@ class HSM {
     State *getParentInstance() { return &Run::instance; }
     void onEnter(HSM &hsm, State &fromState);
     void onExit(HSM &hsm, State &toState);
+    void onUpdate(HSM &hsm);
   };
 
   // SHUTDOWN

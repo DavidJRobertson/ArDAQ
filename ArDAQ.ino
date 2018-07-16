@@ -74,6 +74,11 @@ void loop() {
   hsm.onUpdate();
   hsm.onUpdate();
   hsm.onSignalStop();
+
+  hsm.onUpdate();
+  hsm.onUpdate();
+
+  while(true) {}
 }
 
 void sd_log() {
