@@ -12,11 +12,11 @@ class HPSystem {
       START = 4,        // Pulse sent by autosampler at start of run
       STOP = 5,         // Pulse sent by autosampler at end of run
       SHUTDOWN = 6,     // High during normal operation. Low when ANY connected module experiences a serious fault (e.g. if a leak is detected). Stops the pump!
-      STARTREQ = 7,     // Send a pulse on this line to ask the autosampler to begin 
+      STARTREQ = 7,     // Send a pulse on this line to ask the autosampler to begin
     };
-  
+
     HPSystem(uint8_t poweron_pin, uint8_t preparerun_pin, uint8_t ready_pin, uint8_t start_pin, uint8_t stop_pin, uint8_t shutdown_pin, uint8_t startreq_pin);
-    
+
     void assert_line(enum Line line);
     void release_line(enum Line line);
     void set_line(enum Line line, bool value);
@@ -28,7 +28,7 @@ class HPSystem {
     void startreq();
     void shutdown();
     bool isShutdown();
-    
+
   private:
     uint8_t get_line_pin(enum Line line);
     uint8_t _poweron;

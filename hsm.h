@@ -3,86 +3,110 @@
 
 #include <stdint.h>
 
+#include <RTClib.h>
+#include "hpsystem.h"
+#include "ads1232.h"
+
 class HSM {
   public:
+
   class State {
-  public:
-    static State instance;
-    virtual State *getParentInstance() { return 0; }
-    bool isDescendantOf(State *s);
+    public:
+      static State instance;
+      virtual State *getParentInstance() { return 0; }
+      bool isDescendantOf(State *s);
 
-    // Enter/exit state events
-    virtual void onEnter(HSM &hsm, State &fromState) {}
-    virtual void onInit( HSM &hsm, State &fromState) {}
-    virtual void onExit( HSM &hsm, State &toState)   {}
+      // Enter/exit state events
+      virtual void onEnter(HSM &hsm, State &fromState) {}
+      virtual void onInit( HSM &hsm, State &fromState) {}
+      virtual void onExit( HSM &hsm, State &toState)   {}
 
-    // HP system events
-    virtual void onSignalStart(       HSM &hsm) {}
-    virtual void onSignalStop(        HSM &hsm) {}
-    virtual void onSignalShutdown(    HSM &hsm) {}
-    virtual void onSignalStartRequest(HSM &hsm) {}
-    virtual void onSignalPrepare(     HSM &hsm) {}
-    virtual void onSignalNotReady(    HSM &hsm) {}
-    virtual void onSignalPowerOff(    HSM &hsm) {}
+      // HP system events
+      virtual void onSignalStart(       HSM &hsm) {}
+      virtual void onSignalStop(        HSM &hsm) {}
+      virtual void onSignalShutdown(    HSM &hsm) {}
+      virtual void onSignalStartRequest(HSM &hsm) {}
+      virtual void onSignalPrepare(     HSM &hsm) {}
+      virtual void onSignalReady(       HSM &hsm) {}
+      virtual void onSignalNotReady(    HSM &hsm) {}
+      virtual void onSignalPowerOff(    HSM &hsm) {}
+      virtual void onSignalPowerOn(     HSM &hsm) {}
 
-    // ADC events
-    virtual void onAdcDataReady(HSM &hsm) {}
+      // ADC events
+      virtual void onAdcDataReady(HSM &hsm) {}
 
-    // Loop update
-    virtual void onUpdate(  HSM &hsm) {}
-    virtual void onInitDone(HSM &hsm) {}
+      // Loop update
+      virtual void onUpdate(  HSM &hsm) {}
+      virtual void onInitDone(HSM &hsm) {}
+      virtual void onSerialAvailable(HSM &hsm) {}
   };
 
-  // INIT
+  // Init
   class Init : public State {
-  public:
-    static Init instance;
-    void onInitDone(HSM &hsm);
+    public:
+      static Init instance;
+      virtual void onInitDone(HSM &hsm);
   };
 
-  // IDLE
+  // Idle
   class Idle : public State {
-  public:
-    static Idle instance;
-    void onEnter(HSM &hsm, State &fromState);
-    void onExit(HSM &hsm, State &toState);
-    void onSignalStart(HSM &hsm);
-    void onSignalStartRequest(HSM &hsm);
-    void onUpdate(HSM &hsm);
+    public:
+      static Idle instance;
+      virtual void onEnter(HSM &hsm, State &fromState);
+      virtual void onExit(HSM &hsm, State &toState);
+      virtual void onSignalStart(HSM &hsm);
+      virtual void onSerialAvailable(HSM &hsm);
+      virtual void onSignalNotReady(HSM &hsm);
+      virtual void onSignalReady(HSM &hsm);
+      virtual void onSignalPowerOff(HSM &hsm);
+      virtual void onSignalPowerOn(HSM &hsm);
   };
 
-  // RUN
+  // Run
   class Run : public State {
-  public:
-    static Run instance;
-    void onEnter(HSM &hsm, State &fromState);
-    void onExit(HSM &hsm, State &toState);
-    void onUpdate(HSM &hsm);
-    void onSignalStop(HSM &hsm);
+    public:
+      static Run instance;
+      virtual void onEnter(HSM &hsm, State &fromState);
+      virtual void onExit(HSM &hsm, State &toState);
+      virtual void onInit(HSM &hsm, State &fromState);
+      virtual void onSignalStop(HSM &hsm);
+      virtual void onSerialAvailable(HSM &hsm);
+      virtual void onSignalNotReady(HSM &hsm);
+      virtual void onSignalReady(HSM &hsm);
+      virtual void onSignalPowerOff(HSM &hsm);
+      virtual void onSignalPowerOn(HSM &hsm);
   };
 
+  // Run > WaitForConversion
+  class WaitForConversion : public Run {
+    public:
+      static WaitForConversion instance;
+      virtual State *getParentInstance() { return &Run::instance; }
+      virtual void onEnter(HSM &hsm, State &fromState);
+      virtual void onExit(HSM &hsm, State &toState);
+      virtual void onInit(HSM &hsm, State &fromState) {}
+      virtual void onAdcDataReady(HSM &hsm);
+  };
+
+  // Run > Sample
   class Sample : public Run {
-  public:
-    static Sample instance;
-    State *getParentInstance() { return &Run::instance; }
-    void onEnter(HSM &hsm, State &fromState);
-    void onExit(HSM &hsm, State &toState);
-    void onUpdate(HSM &hsm);
+    public:
+      static Sample instance;
+      virtual State *getParentInstance() { return &Run::instance; }
+      virtual void onEnter(HSM &hsm, State &fromState);
+      virtual void onExit(HSM &hsm, State &toState);
+      virtual void onInit(HSM &hsm, State &fromState);
   };
 
-  // SHUTDOWN
+  // Shutdown
   class Shutdown : public State {
-  public:
-    static Shutdown instance;
+    public:
+      static Shutdown instance;
   };
 
-
-  // Current state and state transition logic
-  State *currentState;
+  // Constructor & transitionTo method
+  HSM(HPSystem &_hp, ADS1232 &_adc, RTC_DS1307 &_rtc, uint8_t _ledPin);
   void transitionTo(State &newState);
-
-  // Constructor
-  HSM();
 
   // Delegate events to the current state
   void onSignalStart()        { currentState->onSignalStart(*this);        }
@@ -91,10 +115,27 @@ class HSM {
   void onSignalStartRequest() { currentState->onSignalStartRequest(*this); }
   void onSignalPrepare()      { currentState->onSignalPrepare(*this);      }
   void onSignalNotReady()     { currentState->onSignalNotReady(*this);     }
+  void onSignalReady()        { currentState->onSignalReady(*this);        }
   void onSignalPowerOff()     { currentState->onSignalPowerOff(*this);     }
+  void onSignalPowerOn()      { currentState->onSignalPowerOn(*this);      }
   void onAdcDataReady()       { currentState->onAdcDataReady(*this);       }
   void onUpdate()             { currentState->onUpdate(*this);             }
   void onInitDone()           { currentState->onInitDone(*this);           }
+  void onSerialAvailable()    { currentState->onSerialAvailable(*this);    }
+
+private:
+  State *currentState;
+
+  HPSystem *hp;
+  ADS1232 *adc;
+  RTC_DS1307 *rtc;
+  uint8_t ledPin;
+  bool debug=false;
+
+  uint32_t startTime;
+  uint32_t sampleNumber;
+
+  void debugPrintln(const char *str);
 };
 
 #endif

@@ -16,13 +16,13 @@ HPSystem::HPSystem(uint8_t poweron_pin, uint8_t preparerun_pin, uint8_t ready_pi
   _stop = stop_pin;
   _shutdown = shutdown_pin;
   _startreq = startreq_pin;
-  pinMode(_poweron,    INPUT);
-  pinMode(_preparerun, INPUT);
-  pinMode(_ready,      INPUT);
-  pinMode(_start,      INPUT);
-  pinMode(_stop,       INPUT);
-  pinMode(_shutdown,   INPUT);
-  pinMode(_startreq,   INPUT);
+  pinMode(_poweron,    INPUT_PULLUP);
+  pinMode(_preparerun, INPUT_PULLUP);
+  pinMode(_ready,      INPUT_PULLUP);
+  pinMode(_start,      INPUT_PULLUP);
+  pinMode(_stop,       INPUT_PULLUP);
+  pinMode(_shutdown,   INPUT_PULLUP);
+  pinMode(_startreq,   INPUT_PULLUP);
 }
 uint8_t HPSystem::get_line_pin(enum Line line) {
   switch (line) {
