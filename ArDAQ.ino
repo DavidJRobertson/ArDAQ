@@ -32,136 +32,11 @@ int sampleNumber;
 unsigned long startTime;
 
 // State functions
-State noopState = State();
-FSM fsm(noopState);
-void st_idle_enter();
-void st_idle_update();
-void st_streq_enter();
-void st_streq_update();
-void st_streq_exit();
-void st_prep_enter();
-void st_prep_update();
-void st_prepim_update();
-void st_run_enter();
-void st_run_update();
-void st_run_exit();
-void st_post_enter();
-State st_idle   = State(st_idle_enter, st_idle_update, NULL);
-State st_streq  = State(st_streq_enter, st_streq_update, st_streq_exit);
-State st_prep   = State(st_prep_enter, st_prep_update,   NULL);
-State st_prepim = State(st_prep_enter, st_prepim_update, NULL);
-State st_run    = State(st_run_enter, st_run_update, st_run_exit);
-State st_post   = State(st_post_enter, NULL, NULL);
+#include "hsm.h"
+HSM hsm;
 bool manualOverride = false;
 
-// IDLE STATE
-void st_idle_enter() {
-  Serial.println("Entering st_idle");
-}
-void st_idle_update() {
-  manualOverride=false;
-  if (Serial.available() > 0) {
-    char incomingByte = Serial.read();
-    switch (tolower(incomingByte)) {
-      case 's': manualOverride=true; fsm.transitionTo(st_prepim); break;
-      case 'r': fsm.transitionTo(st_streq); break;
-      case 'x': hp.shutdown(); break;
-    }
-  }
-  if (hp.read_line(HPSystem::POWERON)) {
-    if (!hp.read_line(HPSystem::START)) {
-      fsm.transitionTo(st_prepim);
-    } else if (!hp.read_line(HPSystem::STARTREQ)) {
-      fsm.transitionTo(st_prep);
-    }
-  }
-}
 
-// STREQ STATE
-void st_streq_enter() {
-  Serial.println("Entering st_streq");
-  Serial.println("# Sending start request.")
-  startTime = millis();
-  hp.assert_line(HPSystem::STARTREQ);
-}
-void st_streq_update() {
-  int delay = 150;
-  if ( (millis()-startTime) >= delay) {
-    fsm.transitionTo(st_prep);
-  }
-}
-void st_streq_exit() {
-  hp.release_line(HPSystem::STARTREQ);
-}
-
-// PREP/PREPIM STATE
-void st_prep_enter() { // used for prepim as well
-  Serial.println("Entering st_prep or st_prepim");
-  adc.enable();
-  adc.offset_calibration();
-  sampleNumber = 0;
-}
-void st_prep_update() {
-  if (!hp.read_line(HPSystem::START)) {
-    fsm.transitionTo(st_run);
-  }
-}
-void st_prepim_update() {
-  fsm.transitionTo(st_run);
-}
-
-// RUN STATE
-void st_run_enter() {
-  Serial.println("Entering st_run");
-  startTime = millis();
-  digitalWrite(RUN_LED_PIN, HIGH);
-}
-void st_run_exit() {
-  adc.disable();
-  digitalWrite(RUN_LED_PIN, LOW);
-}
-void st_run_update() {
-  if (Serial.available() > 0) {
-    char incomingByte = Serial.read();
-    switch (tolower(incomingByte)) {
-      case 's': fsm.transitionTo(st_post); break;
-      case 'x': hp.shutdown();   break;
-    }
-  }
-  if (!manualOverride && !hp.read_line(HPSystem::STOP)) {
-    fsm.transitionTo(st_post);
-  }
-  if (adc.ready()) {
-    sampleNumber++;
-    unsigned long iterationStartTime = millis() - startTime;
-    unsigned long adcval = adc.read_blocking();
-
-    Serial.print(sampleNumber);
-    Serial.print("\t");
-
-    Serial.print(iterationStartTime/(1000.0*60), 4);
-    Serial.print("\t");
-
-    // Output the raw ADC value
-    Serial.print(adcval);
-    Serial.print("\t");
-
-    // System Status Flags column
-    Serial.print(hp.getFlagString());
-    Serial.print("\t");
-
-    // Send the newline
-    Serial.println();
-  }
-}
-
-// POST RUN STATE
-void st_post_enter() {
-  Serial.println("Entering st_post");
-  fsm.transitionTo(st_idle);
-}
-
-//State st_shutdown = State();
 
 // Initialization
 void setup() {
@@ -185,12 +60,20 @@ void setup() {
   adc.init();
   adc.disable();
 
-  // FSM
-  fsm.transitionTo(st_idle);
+  // HSM
+  hsm.onInitDone(); // go to the idle state
 }
 
 void loop() {
-  fsm.update();
+  hsm.onUpdate();
+  hsm.onUpdate();
+  hsm.onUpdate();
+
+  hsm.onSignalStart();
+  hsm.onUpdate();
+  hsm.onUpdate();
+  hsm.onUpdate();
+  hsm.onSignalStop();
 }
 
 void sd_log() {
