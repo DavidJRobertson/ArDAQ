@@ -62,7 +62,7 @@ void setup() {
 }
 
 void loop() {
-  static bool power = false;
+  static bool power = true;
   if (power != hp.read_line(HPSystem::POWERON)) {
     power = hp.read_line(HPSystem::POWERON);
     if (power) {
@@ -72,8 +72,8 @@ void loop() {
     }
   }
   static bool ready = false;
-  if (ready != (!hp.read_line(HPSystem::READY))) {
-    ready = (!hp.read_line(HPSystem::READY));
+  if (ready != hp.read_line(HPSystem::READY)) {
+    ready = hp.read_line(HPSystem::READY);
     if (ready) {
       hsm.onSignalReady();
     } else {
