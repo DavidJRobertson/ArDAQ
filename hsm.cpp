@@ -5,6 +5,7 @@
 // State instances (needed to make the linker happy)
 HSM::State              HSM::State::instance;
 HSM::Init               HSM::Init::instance;
+HSM::SendStartRequest   HSM::SendStartRequest::instance;
 HSM::Idle               HSM::Idle::instance;
 HSM::Run                HSM::Run::instance;
 HSM::Sample             HSM::Sample::instance;
@@ -57,21 +58,33 @@ void HSM::debugPrintln(const char *str) {
     Serial.println(str);
   }
 }
+void HSM::messagePrintln(const char *str) {
+  Serial.print("# ");
+  printTimestamp();
+  Serial.print("\t");
+  Serial.println(str);
+}
+void HSM::printTimestamp() {
+  DateTime now = rtc->now();
+  printf("%04d/%02d/%02d %02d:%02d:%02d", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
+}
 
 // Init
 void HSM::Init::onInitDone(HSM &hsm) {
+  hsm.messagePrintln("ArDAQ Started");
   hsm.transitionTo(HSM::Idle::instance);
 }
 
 // Idle
 void HSM::Idle::onEnter(HSM &hsm, HSM::State &fromState) {
-  Serial.println("# Idle");
+  hsm.messagePrintln("Idle (commands: s=start acq., r=send start req., x=send shutdown)");
   hsm.debugPrintln("Entering Idle");
 }
 void HSM::Idle::onExit(HSM &hsm, HSM::State &toState) {
   hsm.debugPrintln("Exiting Idle");
 }
 void HSM::Idle::onSignalStart(HSM &hsm) {
+  hsm.messagePrintln("HPSystem: start signal received");
   hsm.transitionTo(HSM::Run::instance);
 }
 void HSM::Idle::onSerialAvailable(HSM &hsm) {
@@ -80,39 +93,47 @@ void HSM::Idle::onSerialAvailable(HSM &hsm) {
     case 's':
       hsm.transitionTo(HSM::Run::instance);
       break;
-    //case 'r':
-      //hsm.transitionTo(st_streq);
-      //break;
+    case 'r':
+      hsm.transitionTo(HSM::SendStartRequest::instance);
+      break;
     case 'x':
       hsm.hp->shutdown();
       break;
   }
 }
 void HSM::Idle::onSignalNotReady(HSM &hsm) {
-  Serial.println("# HPSystem: Not Ready!");
+  hsm.messagePrintln("HPSystem: Not Ready!");
 }
 void HSM::Idle::onSignalReady(HSM &hsm) {
-  Serial.println("# HPSystem: Ready. ");
+  hsm.messagePrintln("HPSystem: Ready.");
 }
 void HSM::Idle::onSignalPowerOff(HSM &hsm) {
-  Serial.println("# HPSystem: Check module power!");
+  hsm.messagePrintln("HPSystem: Check module power!");
 }
 void HSM::Idle::onSignalPowerOn(HSM &hsm) {
-  Serial.println("# HPSystem: Module power OK. ");
+  hsm.messagePrintln("HPSystem: Module power OK.");
+}
+
+// SendStartRequest
+void HSM::SendStartRequest::onInit(HSM &hsm, HSM::State &fromState) {
+  hsm.messagePrintln("Sending start request...");
+  hsm.hp->startreq();
+  hsm.transitionTo(HSM::Idle::instance);
 }
 
 // Run
 void HSM::Run::onEnter(HSM &hsm, HSM::State &fromState) {
   hsm.debugPrintln("Entering Run");
-  Serial.println("# Run starting");
   hsm.adc->enable();
   hsm.adc->offset_calibration();
   hsm.sampleNumber = 0;
+  hsm.messagePrintln("Run started (commands: s=stop acq., x=send shutdown)");
   hsm.startTime = millis();
   digitalWrite(hsm.ledPin, HIGH);
 }
 void HSM::Run::onExit(HSM &hsm, HSM::State &toState) {
   hsm.debugPrintln("Exiting Run");
+  hsm.messagePrintln("Run ended");
   hsm.adc->disable();
   digitalWrite(hsm.ledPin, LOW);
 }
@@ -120,6 +141,7 @@ void HSM::Run::onInit(HSM &hsm, HSM::State &fromState) {
   hsm.transitionTo(HSM::WaitForConversion::instance);
 }
 void HSM::Run::onSignalStop(HSM &hsm) {
+  hsm.messagePrintln("HPSystem: stop signal received");
   hsm.transitionTo(HSM::Idle::instance); //// TODO postrun
 }
 void HSM::Run::onSerialAvailable(HSM &hsm) {
@@ -135,16 +157,16 @@ void HSM::Run::onSerialAvailable(HSM &hsm) {
   }
 }
 void HSM::Run::onSignalNotReady(HSM &hsm) {
-  Serial.println("# HPSystem: Not Ready!");
+  hsm.messagePrintln("HPSystem: Not Ready!");
 }
 void HSM::Run::onSignalReady(HSM &hsm) {
-  Serial.println("# HPSystem: Ready. ");
+  hsm.messagePrintln("HPSystem: Ready. ");
 }
 void HSM::Run::onSignalPowerOff(HSM &hsm) {
-  Serial.println("# HPSystem: Check module power!");
+  hsm.messagePrintln("HPSystem: Check module power!");
 }
 void HSM::Run::onSignalPowerOn(HSM &hsm) {
-  Serial.println("# HPSystem: Module power OK. ");
+  hsm.messagePrintln("HPSystem: Module power OK. ");
 }
 
 // Run > WaitForConversion

@@ -35,12 +35,20 @@ int sampleNumber;
 unsigned long startTime;
 bool manualOverride = false;
 
+
+
+// printf stuff
+static int Serial_write(char c, FILE *) {
+  return Serial.write(c);
+}
+static FILE mystdout;
+
 // Initialization
 void setup() {
   // Serial
   Serial.begin(115200);
-  Serial.println();
-  Serial.println("# ArDAQ starting");
+  stdout = &mystdout;
+  fdev_setup_stream(stdout, Serial_write, NULL, _FDEV_SETUP_WRITE);
 
   // LED
   pinMode(RUN_LED_PIN, OUTPUT);

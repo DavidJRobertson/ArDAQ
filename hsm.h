@@ -48,6 +48,13 @@ class HSM {
       virtual void onInitDone(HSM &hsm);
   };
 
+  // SendStartRequest
+  class SendStartRequest : public State {
+    public:
+      static SendStartRequest instance;
+      virtual void onInit(HSM &hsm, State &fromState);
+  };
+
   // Idle
   class Idle : public State {
     public:
@@ -136,6 +143,8 @@ private:
   uint32_t sampleNumber;
 
   void debugPrintln(const char *str);
+  void messagePrintln(const char *str);
+  void printTimestamp();
 };
 
 #endif
