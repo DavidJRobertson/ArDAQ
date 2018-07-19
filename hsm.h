@@ -112,7 +112,7 @@ class HSM {
   };
 
   // Constructor & transitionTo method
-  HSM(HPSystem &_hp, ADS1232 &_adc, RTC_DS1307 &_rtc, uint8_t _ledPin);
+  HSM(HPSystem &_hp, ADS1232 &_adc, RTC_DS1307 &_rtc, uint8_t _ledPin, uint8_t _sdCsPin);
   void transitionTo(State &newState);
 
   // Delegate events to the current state
@@ -137,6 +137,7 @@ private:
   ADS1232 *adc;
   RTC_DS1307 *rtc;
   uint8_t ledPin;
+  uint8_t sdCsPin;
   bool debug=false;
 
   uint32_t startTime;
@@ -144,7 +145,8 @@ private:
 
   void debugPrintln(const char *str);
   void messagePrintln(const char *str);
-  void printTimestamp();
+
+  bool sd_log(const char* logEntry);
 };
 
 #endif

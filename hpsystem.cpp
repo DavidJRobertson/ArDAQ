@@ -73,32 +73,34 @@ bool HPSystem::isShutdown() {
 }
 
 
-char* HPSystem::getFlagString() {
-  char result[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-  char index = 0;
+char* HPSystem::getFlagString(char *buf) { // Buffer must be minimum 8 chars
+  for (uint8_t i = 0; i < 8; i++) {
+    buf[i] = 0;
+  }
 
-  if (read_line(HPSystem::POWERON)) {
-    result[index++] = 'P';
+  uint8_t index = 0;
+  if (!read_line(HPSystem::POWERON)) {
+    buf[index++] = 'P';
   }
   if (!read_line(HPSystem::SHUTDOWN)) {
-    result[index++] = 'X';
+    buf[index++] = 'X';
   }
   if (!read_line(HPSystem::READY)) {
-    result[index++] = 'N';
+    buf[index++] = 'N';
   }
 
   if (!read_line(HPSystem::STARTREQ)) {
-    result[index++] = 'r';
+    buf[index++] = 'r';
   }
   if (!read_line(HPSystem::PREPARERUN)) {
-    result[index++] = 'p';
+    buf[index++] = 'p';
   }
   if (!read_line(HPSystem::START)) {
-    result[index++] = 'b';
+    buf[index++] = 'b';
   }
   if (!read_line(HPSystem::STOP)) {
-    result[index++] = 'e';
+    buf[index++] = 'e';
   }
-  result[index++] = '\0';
-  return result;
+  buf[index++] = 0;
+  return buf;
 }

@@ -28,14 +28,12 @@
 HPSystem hp(HP_POWERON_PIN, HP_PREPARERUN_PIN, HP_READY_PIN, HP_START_PIN, HP_STOP_PIN, HP_SHUTDOWN_PIN, HP_STARTREQ_PIN);
 ADS1232 adc(ADC_PDWN_PIN, ADC_DOUT_PIN, ADC_SCLK_PIN);
 RTC_DS1307 rtc;
-HSM hsm(hp, adc, rtc, RUN_LED_PIN);
+HSM hsm(hp, adc, rtc, RUN_LED_PIN, SD_CS_PIN);
 
 // State vars
 int sampleNumber;
 unsigned long startTime;
 bool manualOverride = false;
-
-
 
 // printf stuff
 static int Serial_write(char c, FILE *) {

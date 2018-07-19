@@ -23,7 +23,7 @@ class HPSystem {
     void pulse_line(enum Line line, uint16_t delay);
     bool read_line(enum Line line);
 
-    char* getFlagString();
+    char* getFlagString(char* buf); // buffer must be min. 8 chars long
 
     void startreq();
     void shutdown();

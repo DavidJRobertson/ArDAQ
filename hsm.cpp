@@ -1,5 +1,5 @@
 #include "hsm.h"
-#include "pinmap.h"
+#include <SD.h>
 #include <Arduino.h>
 
 // State instances (needed to make the linker happy)
@@ -12,11 +12,12 @@ HSM::Sample             HSM::Sample::instance;
 HSM::WaitForConversion  HSM::WaitForConversion::instance;
 
 // HIERARCHICHAL STATE MACHINE METHODS
-HSM::HSM(HPSystem &_hp, ADS1232 &_adc, RTC_DS1307 &_rtc, uint8_t _ledPin) {
+HSM::HSM(HPSystem &_hp, ADS1232 &_adc, RTC_DS1307 &_rtc, uint8_t _ledPin, uint8_t _sdCsPin) {
   hp = &_hp;
   adc = &_adc;
   rtc = &_rtc;
   ledPin = _ledPin;
+  sdCsPin = _sdCsPin;
   currentState = &HSM::Init::instance;
   currentState->onEnter(*this, *currentState);
   currentState->onInit(*this, *currentState);
@@ -54,19 +55,11 @@ bool HSM::State::isDescendantOf(HSM::State *s) {
 }
 void HSM::debugPrintln(const char *str) {
   if (debug) {
-    Serial.print("#: ");
-    Serial.println(str);
+    messagePrintln(str);
   }
 }
 void HSM::messagePrintln(const char *str) {
-  Serial.print("# ");
-  printTimestamp();
-  Serial.print("\t");
-  Serial.println(str);
-}
-void HSM::printTimestamp() {
-  DateTime now = rtc->now();
-  printf("%04d/%02d/%02d %02d:%02d:%02d", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
+  printf("#\t%04d/%02d/%02d %02d:%02d:%02d\t%s\r\n", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second(), str);
 }
 
 // Init
@@ -189,25 +182,39 @@ void HSM::Sample::onExit(HSM &hsm, HSM::State &toState) {
 }
 void HSM::Sample::onInit(HSM &hsm, HSM::State &fromState) {
   hsm.sampleNumber++;
-  uint32_t iterationStartTime = millis() - hsm.startTime;
   uint32_t adcval = hsm.adc->read_blocking();
 
-  Serial.print(hsm.sampleNumber);
-  Serial.print("\t");
+  float timeMins = (millis()-hsm.startTime)/(1000.0*60);
+  char timeBuf[24];
+  dtostrf(timeMins, 0, 5, timeBuf);
 
-  Serial.print(iterationStartTime/(1000.0*60), 4);
-  Serial.print("\t");
+  char flagBuf[8];
+  hsm.hp->getFlagString(flagBuf);
 
-  // Output the raw ADC value
-  Serial.print(adcval);
-  Serial.print("\t");
-
-  // System Status Flags column
-  Serial.print(hsm.hp->getFlagString());
-  Serial.print("\t");
-
-  // Send the newline
-  Serial.println();
+  printf("%" PRId32 "\t%s\t%" PRId32 "\t%s\r\n", hsm.sampleNumber,  &timeBuf,  adcval, &flagBuf);
 
   hsm.transitionTo(HSM::WaitForConversion::instance);
+}
+
+
+bool HSM::sd_log(const char* logEntry) {
+  debugPrintln("# in sd_log()");
+  if (SD.begin(sdCsPin)) {
+    messagePrintln("SD card initialized");
+  } else {
+    return false; // card not present/usable
+  }
+
+  // open the file. note that only one file can be open at a time
+  File dataFile = SD.open("ardaq.log", FILE_WRITE);
+  if (! dataFile) {
+    messagePrintln("SD LOGGING ERROR");
+    return false;
+  }
+
+  dataFile.println(logEntry);
+  dataFile.close();
+  Serial.println(logEntry);
+
+  return true;
 }
