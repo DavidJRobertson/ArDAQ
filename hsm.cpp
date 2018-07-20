@@ -59,6 +59,7 @@ void HSM::debugPrintln(const char *str) {
   }
 }
 void HSM::messagePrintln(const char *str) {
+  DateTime now = rtc->now();
   printf("#\t%04d/%02d/%02d %02d:%02d:%02d\t%s\r\n", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second(), str);
 }
 
@@ -181,18 +182,27 @@ void HSM::Sample::onExit(HSM &hsm, HSM::State &toState) {
   hsm.debugPrintln("Exiting Run > Sample");
 }
 void HSM::Sample::onInit(HSM &hsm, HSM::State &fromState) {
+  // Take the sample
+  int32_t adcval = hsm.adc->read_blocking();
+  uint32_t sampleTime = millis() - hsm.startTime;
   hsm.sampleNumber++;
-  uint32_t adcval = hsm.adc->read_blocking();
 
-  float timeMins = (millis()-hsm.startTime)/(1000.0*60);
+  // Print it out
+  float timeMins = sampleTime/(1000.0*60);
   char timeBuf[24];
   dtostrf(timeMins, 0, 5, timeBuf);
 
   char flagBuf[8];
   hsm.hp->getFlagString(flagBuf);
 
-  printf("%" PRId32 "\t%s\t%" PRId32 "\t%s\r\n", hsm.sampleNumber,  &timeBuf,  adcval, &flagBuf);
+  // ref = 2.470v = +-1.235v
+  float adcMilliVolts = adcval * 1235.0/8388608;
+  char milliVoltsBuf[16];
+  dtostrf(adcMilliVolts, 10, 4, milliVoltsBuf);
 
+  printf("%" PRId32 "\t%s\t%s\t%" PRId32 "\t%s\r\n", hsm.sampleNumber,  &timeBuf, &milliVoltsBuf, adcval, &flagBuf);
+
+  // Then wait for the next conversion to complete
   hsm.transitionTo(HSM::WaitForConversion::instance);
 }
 
