@@ -148,6 +148,7 @@ private:
   void messagePrintln(const char *str);
 
   bool sdLogInit();
+  void sdLogClose();
   bool sdLog(const char* logEntry);
   bool sdLogActive = false;
   SdFat sd; // File system object.

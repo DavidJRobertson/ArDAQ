@@ -78,6 +78,9 @@ bool HSM::sdLogInit() {
     return false;
   }
 
+  if (file.isOpen()) {
+    file.close();
+  }
   // Find an unused file name.
   uint8_t runNumber = 0;
   char filename[16];
@@ -91,7 +94,7 @@ bool HSM::sdLogInit() {
   }
 
   // Open the file
-  if (!file.open(filename, O_CREAT | O_WRITE | O_EXCL)) {
+  if ( ! file.open(filename, O_CREAT | O_WRITE | O_EXCL) ) {
     messagePrintln("Couldn't open file on SD card");
     return false;
   }
@@ -101,11 +104,15 @@ bool HSM::sdLogInit() {
   snprintf(msg, 64, "Logging to %s", filename);
   messagePrintln(msg);
 }
+void HSM::sdLogClose() {
+  sdLogActive = false;
+  file.close();
+}
 bool HSM::sdLog(const char* logEntry) {
   if (sdLogActive) {
     file.println(logEntry);
     if (!file.sync() || file.getWriteError()) {
-      sdLogActive = false;
+      sdLogClose();
       messagePrintln("! SD Write Error");
       return false;
     }
@@ -182,7 +189,7 @@ void HSM::Run::onExit(HSM &hsm, HSM::State &toState) {
   hsm.messagePrintln("Run ended");
   hsm.adc->disable();
   digitalWrite(hsm.ledPin, LOW);
-  hsm.sdLogActive = false;
+  hsm.sdLogClose();
 }
 void HSM::Run::onInit(HSM &hsm, HSM::State &fromState) {
   hsm.transitionTo(HSM::WaitForConversion::instance);
