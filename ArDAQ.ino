@@ -17,9 +17,7 @@
 #define RUN_LED_PIN       13
 
 // Includes
-#include "pinmap.h"
 #include <SPI.h>
-#include <SD.h>
 #include <Wire.h>
 #include <RTClib.h>
 #include "hpsystem.h"

@@ -1,6 +1,10 @@
 #include "hsm.h"
-#include <SD.h>
 #include <Arduino.h>
+#include <SPI.h>
+#include "SdFat.h"
+#include <RTClib.h>
+#include "hpsystem.h"
+#include "ads1232.h"
 
 // State instances (needed to make the linker happy)
 HSM::State              HSM::State::instance;
@@ -60,8 +64,55 @@ void HSM::debugPrintln(const char *str) {
 }
 void HSM::messagePrintln(const char *str) {
   DateTime now = rtc->now();
-  printf("#\t%04d/%02d/%02d %02d:%02d:%02d\t%s\r\n", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second(), str);
+  char logBuf[128];
+  snprintf(logBuf, 128, "#\t%04d/%02d/%02d %02d:%02d:%02d\t%s\r\n", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second(), str);
+  Serial.print(logBuf);
+  if (sdLogActive) {
+    sdLog(logBuf);
+  }
 }
+bool HSM::sdLogInit() {
+  sdLogActive = false;
+  if (!sd.begin(sdCsPin, SD_SCK_MHZ(4))) {
+    messagePrintln("No SD card detected.");
+    return false;
+  }
+
+  // Find an unused file name.
+  uint8_t runNumber = 0;
+  char filename[16];
+  do {
+    runNumber++;
+    snprintf(filename, 16, "Run%04d.csv", runNumber);
+  } while (sd.exists(filename) && runNumber < 255);
+  if (runNumber == 255) {
+    messagePrintln("Run out of file numbers, cannot log to SD card");
+    return false;
+  }
+
+  // Open the file
+  if (!file.open(filename, O_CREAT | O_WRITE | O_EXCL)) {
+    messagePrintln("Couldn't open file on SD card");
+    return false;
+  }
+  sdLogActive=true;
+
+  char msg[64];
+  snprintf(msg, 64, "Logging to %s", filename);
+  messagePrintln(msg);
+}
+bool HSM::sdLog(const char* logEntry) {
+  if (sdLogActive) {
+    file.println(logEntry);
+    if (!file.sync() || file.getWriteError()) {
+      sdLogActive = false;
+      messagePrintln("! SD Write Error");
+      return false;
+    }
+  }
+  return true;
+}
+
 
 // Init
 void HSM::Init::onInitDone(HSM &hsm) {
@@ -118,6 +169,7 @@ void HSM::SendStartRequest::onInit(HSM &hsm, HSM::State &fromState) {
 // Run
 void HSM::Run::onEnter(HSM &hsm, HSM::State &fromState) {
   hsm.debugPrintln("Entering Run");
+  hsm.sdLogInit();
   hsm.adc->enable();
   hsm.adc->offset_calibration();
   hsm.sampleNumber = 0;
@@ -130,6 +182,7 @@ void HSM::Run::onExit(HSM &hsm, HSM::State &toState) {
   hsm.messagePrintln("Run ended");
   hsm.adc->disable();
   digitalWrite(hsm.ledPin, LOW);
+  hsm.sdLogActive = false;
 }
 void HSM::Run::onInit(HSM &hsm, HSM::State &fromState) {
   hsm.transitionTo(HSM::WaitForConversion::instance);
@@ -187,44 +240,36 @@ void HSM::Sample::onInit(HSM &hsm, HSM::State &fromState) {
   uint32_t sampleTime = millis() - hsm.startTime;
   hsm.sampleNumber++;
 
-  // Print it out
+  // Format the log line:
+
+  // time in decimal mins
   float timeMins = sampleTime/(1000.0*60);
   char timeBuf[24];
   dtostrf(timeMins, 0, 5, timeBuf);
 
+  // flags
   char flagBuf[8];
   hsm.hp->getFlagString(flagBuf);
 
+  // adc millivolts
   // ref = 2.470v = +-1.235v
   float adcMilliVolts = adcval * 1235.0/8388608;
   char milliVoltsBuf[16];
   dtostrf(adcMilliVolts, 10, 4, milliVoltsBuf);
 
-  printf("%" PRId32 "\t%s\t%s\t%" PRId32 "\t%s\r\n", hsm.sampleNumber,  &timeBuf, &milliVoltsBuf, adcval, &flagBuf);
+  // stick it all together
+  char logBuf[128];
+  snprintf(logBuf, 128, "%" PRId32 "\t%s\t%s\t%" PRId32 "\t%s\r\n", hsm.sampleNumber,  &timeBuf, &milliVoltsBuf, adcval, &flagBuf);
+
+  // Then print/save it
+  Serial.print(logBuf);
+  if (hsm.sdLogActive) {
+    bool written = hsm.sdLog(logBuf);
+    if (!written) {
+      // TODO: should probs shut down the system if logging fails half way through a run
+    }
+  }
 
   // Then wait for the next conversion to complete
   hsm.transitionTo(HSM::WaitForConversion::instance);
-}
-
-
-bool HSM::sd_log(const char* logEntry) {
-  debugPrintln("# in sd_log()");
-  if (SD.begin(sdCsPin)) {
-    messagePrintln("SD card initialized");
-  } else {
-    return false; // card not present/usable
-  }
-
-  // open the file. note that only one file can be open at a time
-  File dataFile = SD.open("ardaq.log", FILE_WRITE);
-  if (! dataFile) {
-    messagePrintln("SD LOGGING ERROR");
-    return false;
-  }
-
-  dataFile.println(logEntry);
-  dataFile.close();
-  Serial.println(logEntry);
-
-  return true;
 }

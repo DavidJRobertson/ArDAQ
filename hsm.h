@@ -2,10 +2,11 @@
 #define HSM_H
 
 #include <stdint.h>
-
-#include <RTClib.h>
-#include "hpsystem.h"
-#include "ads1232.h"
+class HPSystem;
+class ADS1232;
+class RTC_DS1307;
+#include <SPI.h>
+#include "SdFat.h"
 
 class HSM {
   public:
@@ -138,7 +139,7 @@ private:
   RTC_DS1307 *rtc;
   uint8_t ledPin;
   uint8_t sdCsPin;
-  bool debug=false;
+  bool debug = false;
 
   uint32_t startTime;
   uint32_t sampleNumber;
@@ -146,7 +147,11 @@ private:
   void debugPrintln(const char *str);
   void messagePrintln(const char *str);
 
-  bool sd_log(const char* logEntry);
+  bool sdLogInit();
+  bool sdLog(const char* logEntry);
+  bool sdLogActive = false;
+  SdFat sd; // File system object.
+  SdFile file; // Log file.
 };
 
 #endif
