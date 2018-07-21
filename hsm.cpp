@@ -15,11 +15,14 @@ HSM::Run                HSM::Run::instance;
 HSM::Sample             HSM::Sample::instance;
 HSM::WaitForConversion  HSM::WaitForConversion::instance;
 
+RTC_DS1307 *rtcg;
+
 // HIERARCHICHAL STATE MACHINE METHODS
 HSM::HSM(HPSystem &_hp, ADS1232 &_adc, RTC_DS1307 &_rtc, uint8_t _ledPin, uint8_t _sdCsPin) {
   hp = &_hp;
   adc = &_adc;
   rtc = &_rtc;
+  rtcg = rtc;
   ledPin = _ledPin;
   sdCsPin = _sdCsPin;
   currentState = &HSM::Init::instance;
@@ -57,6 +60,8 @@ bool HSM::State::isDescendantOf(HSM::State *s) {
   }
   return false;
 }
+
+// SHARED BEHAVIOUR
 void HSM::debugPrintln(const char *str) {
   if (debug) {
     messagePrintln(str);
@@ -71,8 +76,15 @@ void HSM::messagePrintln(const char *str) {
     sdLog(logBuf);
   }
 }
+
+void sdDateTimeCallback(uint16_t* date, uint16_t* time) {
+  DateTime now = rtcg->now();
+  *date = FAT_DATE(now.year(), now.month(), now.day());
+  *time = FAT_TIME(now.hour(), now.minute(), now.second());
+}
 bool HSM::sdLogInit() {
   sdLogActive = false;
+
   if (!sd.begin(sdCsPin, SD_SCK_MHZ(4))) {
     messagePrintln("No SD card detected.");
     return false;
@@ -100,6 +112,8 @@ bool HSM::sdLogInit() {
   }
   sdLogActive=true;
 
+  file.dateTimeCallback(&sdDateTimeCallback);
+
   char msg[64];
   snprintf(msg, 64, "Logging to %s", filename);
   messagePrintln(msg);
@@ -119,7 +133,6 @@ bool HSM::sdLog(const char* logEntry) {
   }
   return true;
 }
-
 
 // Init
 void HSM::Init::onInitDone(HSM &hsm) {
