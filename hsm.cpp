@@ -110,7 +110,7 @@ void HSM::sdLogClose() {
 }
 bool HSM::sdLog(const char* logEntry) {
   if (sdLogActive) {
-    file.println(logEntry);
+    file.print(logEntry);
     if (!file.sync() || file.getWriteError()) {
       sdLogClose();
       messagePrintln("! SD Write Error");
