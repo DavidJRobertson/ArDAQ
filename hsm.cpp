@@ -274,12 +274,15 @@ void HSM::Sample::onInit(HSM &hsm, HSM::State &fromState) {
   // adc millivolts
   // ref = 2.470v = +-1.235v
   float adcMilliVolts = adcval * 1235.0/8388608;
+  adcMilliVolts = (adcMilliVolts - 50.0) * 2; // convert to actual mAU
   char milliVoltsBuf[16];
   dtostrf(adcMilliVolts, 10, 4, milliVoltsBuf);
 
   // stick it all together
   char logBuf[128];
-  snprintf(logBuf, 128, "%" PRId32 "\t%s\t%s\t%" PRId32 "\t%s\r\n", hsm.sampleNumber,  &timeBuf, &milliVoltsBuf, adcval, &flagBuf);
+  //snprintf(logBuf, 128, "%" PRId32 "\t%s\t%s\t%" PRId32 "\t%s\r\n", hsm.sampleNumber,  &timeBuf, &milliVoltsBuf, adcval, &flagBuf);
+  snprintf(logBuf, 128,  "%s\t%s\t%s\r\n",  &timeBuf, &milliVoltsBuf, &flagBuf);
+
 
   // Then print/save it
   Serial.print(logBuf);
