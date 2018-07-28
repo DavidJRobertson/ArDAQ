@@ -144,12 +144,15 @@ private:
   uint32_t startTime;
   uint32_t sampleNumber;
 
+  void printDateTime();
   void debugPrintln(const char *str);
+  void debugPrintln(const __FlashStringHelper* fstr);
   void messagePrintln(const char *str);
-
+  void messagePrintln(const __FlashStringHelper* fstr);
   bool sdLogInit();
   void sdLogClose();
-  bool sdLog(const char* logEntry);
+  bool sdPrint(const char* str);
+  bool sdPrint(const __FlashStringHelper* fstr);
   SdFat sd; // File system object.
   bool sdLogActive = false;
   SdFile file; // Log file.

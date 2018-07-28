@@ -62,18 +62,38 @@ bool HSM::State::isDescendantOf(HSM::State *s) {
 }
 
 // SHARED BEHAVIOUR
+void HSM::debugPrintln(const __FlashStringHelper* fstr) {
+  if (debug) {
+    messagePrintln(fstr);
+  }
+}
 void HSM::debugPrintln(const char *str) {
   if (debug) {
     messagePrintln(str);
   }
 }
-void HSM::messagePrintln(const char *str) {
+
+void HSM::printDateTime() {
   DateTime now = rtc->now();
-  char logBuf[128];
-  snprintf(logBuf, 128, "#\t%04d/%02d/%02d %02d:%02d:%02d\t%s\r\n", now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second(), str);
-  Serial.print(logBuf);
+  char timeBuf[24];
+  snprintf_P(timeBuf, 128, PSTR("#\t%04d/%02d/%02d %02d:%02d:%02d\t"), now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
+  Serial.print(timeBuf);
   if (sdLogActive) {
-    sdLog(logBuf);
+    sdPrint(timeBuf);
+  }
+}
+void HSM::messagePrintln(const __FlashStringHelper* fstr) {
+  printDateTime();
+  Serial.println(fstr);
+  if (sdLogActive) {
+    sdPrint(fstr);
+  }
+}
+void HSM::messagePrintln(const char *str) {
+  printDateTime();
+  Serial.println(str);
+  if (sdLogActive) {
+    sdPrint(str);
   }
 }
 
@@ -86,7 +106,7 @@ bool HSM::sdLogInit() {
   sdLogActive = false;
 
   if (!sd.begin(sdCsPin, SD_SCK_MHZ(4))) {
-    messagePrintln("No SD card detected.");
+    messagePrintln(F("No SD card detected."));
     return false;
   }
 
@@ -98,16 +118,16 @@ bool HSM::sdLogInit() {
   char filename[16];
   do {
     runNumber++;
-    snprintf(filename, 16, "Run%04d.csv", runNumber);
+    snprintf_P(filename, 16, PSTR("Run%04d.csv"), runNumber);
   } while (sd.exists(filename) && runNumber < 255);
   if (runNumber == 255) {
-    messagePrintln("Run out of file numbers, cannot log to SD card");
+    messagePrintln(F("Run out of file numbers, cannot log to SD card"));
     return false;
   }
 
   // Open the file
   if ( ! file.open(filename, O_CREAT | O_WRITE | O_EXCL) ) {
-    messagePrintln("Couldn't open file on SD card");
+    messagePrintln(F("Couldn't open file on SD card"));
     return false;
   }
   sdLogActive=true;
@@ -122,12 +142,24 @@ void HSM::sdLogClose() {
   sdLogActive = false;
   file.close();
 }
-bool HSM::sdLog(const char* logEntry) {
+
+bool HSM::sdPrint(const __FlashStringHelper* fstr) {
   if (sdLogActive) {
-    file.print(logEntry);
+    file.print(fstr);
     if (!file.sync() || file.getWriteError()) {
       sdLogClose();
-      messagePrintln("! SD Write Error");
+      messagePrintln(F("! SD Write Error"));
+      return false;
+    }
+  }
+  return true;
+}
+bool HSM::sdPrint(const char* str) {
+  if (sdLogActive) {
+    file.print(str);
+    if (!file.sync() || file.getWriteError()) {
+      sdLogClose();
+      messagePrintln(F("! SD Write Error"));
       return false;
     }
   }
@@ -136,20 +168,20 @@ bool HSM::sdLog(const char* logEntry) {
 
 // Init
 void HSM::Init::onInitDone(HSM &hsm) {
-  hsm.messagePrintln("ArDAQ Started");
+  hsm.messagePrintln(F("ArDAQ Started"));
   hsm.transitionTo(HSM::Idle::instance);
 }
 
 // Idle
 void HSM::Idle::onEnter(HSM &hsm, HSM::State &fromState) {
-  hsm.messagePrintln("Idle (commands: s=start acq., r=send start req., x=send shutdown)");
-  hsm.debugPrintln("Entering Idle");
+  hsm.messagePrintln(F("Idle (commands: s=start acq., r=send start req., x=send shutdown)"));
+  hsm.debugPrintln(F("Entering Idle"));
 }
 void HSM::Idle::onExit(HSM &hsm, HSM::State &toState) {
-  hsm.debugPrintln("Exiting Idle");
+  hsm.debugPrintln(F("Exiting Idle"));
 }
 void HSM::Idle::onSignalStart(HSM &hsm) {
-  hsm.messagePrintln("HPSystem: start signal received");
+  hsm.messagePrintln(F("HPSystem: start signal received"));
   hsm.transitionTo(HSM::Run::instance);
 }
 void HSM::Idle::onSerialAvailable(HSM &hsm) {
@@ -167,39 +199,39 @@ void HSM::Idle::onSerialAvailable(HSM &hsm) {
   }
 }
 void HSM::Idle::onSignalNotReady(HSM &hsm) {
-  hsm.messagePrintln("HPSystem: Not Ready!");
+  hsm.messagePrintln(F("HPSystem: Not Ready!"));
 }
 void HSM::Idle::onSignalReady(HSM &hsm) {
-  hsm.messagePrintln("HPSystem: Ready.");
+  hsm.messagePrintln(F("HPSystem: Ready."));
 }
 void HSM::Idle::onSignalPowerOff(HSM &hsm) {
-  hsm.messagePrintln("HPSystem: Check module power!");
+  hsm.messagePrintln(F("HPSystem: Check module power!"));
 }
 void HSM::Idle::onSignalPowerOn(HSM &hsm) {
-  hsm.messagePrintln("HPSystem: Module power OK.");
+  hsm.messagePrintln(F("HPSystem: Module power OK."));
 }
 
 // SendStartRequest
 void HSM::SendStartRequest::onInit(HSM &hsm, HSM::State &fromState) {
-  hsm.messagePrintln("Sending start request...");
+  hsm.messagePrintln(F("Sending start request..."));
   hsm.hp->startreq();
   hsm.transitionTo(HSM::Idle::instance);
 }
 
 // Run
 void HSM::Run::onEnter(HSM &hsm, HSM::State &fromState) {
-  hsm.debugPrintln("Entering Run");
+  hsm.debugPrintln(F("Entering Run"));
   hsm.sdLogInit();
   hsm.adc->enable();
   hsm.adc->offset_calibration();
   hsm.sampleNumber = 0;
-  hsm.messagePrintln("Run started (commands: s=stop acq., x=send shutdown)");
+  hsm.messagePrintln(F("Run started (commands: s=stop acq., x=send shutdown)"));
   hsm.startTime = millis();
   digitalWrite(hsm.ledPin, HIGH);
 }
 void HSM::Run::onExit(HSM &hsm, HSM::State &toState) {
-  hsm.debugPrintln("Exiting Run");
-  hsm.messagePrintln("Run ended");
+  hsm.debugPrintln(F("Exiting Run"));
+  hsm.messagePrintln(F("Run ended"));
   hsm.adc->disable();
   digitalWrite(hsm.ledPin, LOW);
   hsm.sdLogClose();
@@ -208,7 +240,7 @@ void HSM::Run::onInit(HSM &hsm, HSM::State &fromState) {
   hsm.transitionTo(HSM::WaitForConversion::instance);
 }
 void HSM::Run::onSignalStop(HSM &hsm) {
-  hsm.messagePrintln("HPSystem: stop signal received");
+  hsm.messagePrintln(F("HPSystem: stop signal received"));
   hsm.transitionTo(HSM::Idle::instance); //// TODO postrun
 }
 void HSM::Run::onSerialAvailable(HSM &hsm) {
@@ -224,24 +256,24 @@ void HSM::Run::onSerialAvailable(HSM &hsm) {
   }
 }
 void HSM::Run::onSignalNotReady(HSM &hsm) {
-  hsm.messagePrintln("HPSystem: Not Ready!");
+  hsm.messagePrintln(F("HPSystem: Not Ready!"));
 }
 void HSM::Run::onSignalReady(HSM &hsm) {
-  hsm.messagePrintln("HPSystem: Ready. ");
+  hsm.messagePrintln(F("HPSystem: Ready."));
 }
 void HSM::Run::onSignalPowerOff(HSM &hsm) {
-  hsm.messagePrintln("HPSystem: Check module power!");
+  hsm.messagePrintln(F("HPSystem: Check module power!"));
 }
 void HSM::Run::onSignalPowerOn(HSM &hsm) {
-  hsm.messagePrintln("HPSystem: Module power OK. ");
+  hsm.messagePrintln(F("HPSystem: Module power OK."));
 }
 
 // Run > WaitForConversion
 void HSM::WaitForConversion::onEnter(HSM &hsm, HSM::State &fromState) {
-  hsm.debugPrintln("Entering Run > WaitForConversion");
+  hsm.debugPrintln(F("Entering Run > WaitForConversion"));
 }
 void HSM::WaitForConversion::onExit(HSM &hsm, HSM::State &toState) {
-  hsm.debugPrintln("Exiting Run > WaitForConversion");
+  hsm.debugPrintln(F("Exiting Run > WaitForConversion"));
 }
 void HSM::WaitForConversion::onAdcDataReady(HSM &hsm) {
   hsm.transitionTo(HSM::Sample::instance);
@@ -249,10 +281,10 @@ void HSM::WaitForConversion::onAdcDataReady(HSM &hsm) {
 
 // Run > Sample
 void HSM::Sample::onEnter(HSM &hsm, HSM::State &fromState) {
-  hsm.debugPrintln("Entering Run > Sample");
+  hsm.debugPrintln(F("Entering Run > Sample"));
 }
 void HSM::Sample::onExit(HSM &hsm, HSM::State &toState) {
-  hsm.debugPrintln("Exiting Run > Sample");
+  hsm.debugPrintln(F("Exiting Run > Sample"));
 }
 void HSM::Sample::onInit(HSM &hsm, HSM::State &fromState) {
   // Take the sample
@@ -287,7 +319,7 @@ void HSM::Sample::onInit(HSM &hsm, HSM::State &fromState) {
   // Then print/save it
   Serial.print(logBuf);
   if (hsm.sdLogActive) {
-    bool written = hsm.sdLog(logBuf);
+    bool written = hsm.sdPrint(logBuf);
     if (!written) {
       // TODO: should probs shut down the system if logging fails half way through a run
     }
